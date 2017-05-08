@@ -1,4 +1,4 @@
-(function() {
+  (function() {
   'use strict';
 
   window._ = {};
@@ -7,6 +7,7 @@
   // seem very useful, but remember it--if a function needs to provide an
   // iterator when the user does not pass one in, this will be handy.
   _.identity = function(val) {
+    return val;
   };
 
   /**
@@ -37,7 +38,7 @@
   // Like first, but for the last elements. If n is undefined, return just the
   // last element.
   _.last = function(array, n) {
-    return n === undefined ? array[array.length-1] : array.slice(array.length-n, array.length);
+    return n === undefined ? array[array.length-1] : n > array.length ? array : array.slice(array.length-n, array.length);
   };
 
   // Call iterator(value, key, collection) for each element of collection.
@@ -92,7 +93,7 @@
 
   // Return all elements of an array that don't pass a truth test.
   _.reject = function(collection, test) {
-    return result = _.filter( collection, function(item) { return !test(item)} );
+    return  _.filter( collection, function(item) { return !test(item)} );
 
     // TIP: see if you can re-use _.filter() here, without simply
     // copying code in and modifying it
@@ -122,7 +123,7 @@
     // map() is a useful primitive iteration function that works a lot
     // like each(), but in addition to running the operation on all
     // the members, it also maintains an array of results.
-    result = []
+    var result = [];
     if (Array.isArray(collection)) {
       for (var i = 0; i < collection.length; ++i) {
         result.push(iterator(collection[i], i, collection));
@@ -177,13 +178,22 @@
   _.reduce = function(collection, iterator, accumulator) {
 
     //RB: debug to find out what happens for one-element array.
-    var retVal = accumulator === undefined ? _.first(collection) : accumulator;
-    return _.last( _.map( collection, function(item){
+    if (accumulator === undefined) {
+      var retVal = _.first(collection);
+      var collectionCopy = collection.slice(1);
+      return _.last( _.map( collectionCopy, function(item){
       retVal = iterator(retVal, item);
       return retVal;
-
-    }));
-  };
+      }));
+    } 
+    else {
+      var retVal = accumulator;
+      return _.last( _.map( collection, function(item){
+      retVal = iterator(retVal, item);
+      return retVal;
+      }));
+    }
+  }
 
   // Determine if the array or object contains a given value (using `===`).
   _.contains = function(collection, target) {
@@ -203,8 +213,15 @@
     // TIP: Try re-using reduce() here.
     if (collection.length === 0) return true;
     return _.reduce(collection, function(wasFound, item) {
-      if (wasFound && iterator(item)) {
-        return true;
+      if (iterator === undefined) {
+        if (wasFound && item) {
+          return true;
+        }
+      }
+      else {
+        if (wasFound && iterator(item)) {
+          return true;
+        }
       }
       return false;
     }, true);
@@ -214,9 +231,8 @@
   // provided, provide a default one
   _.some = function(collection, iterator) {
     // TIP: There's a very clever way to re-use every() here.
-    return ! _.every(collection, function(item) { return !iterator(item)});
+      return ! _.every(collection, function(item) { return iterator === undefined ? item != true : !iterator(item)});
   };
-
 
   /**
    * OBJECTS
@@ -237,17 +253,21 @@
   //     bla: "even more stuff"
   //   }); // obj1 now contains key1, key2, key3 and bla
   _.extend = function(obj) {
-    /*
-    for (var i = 1 ; i < arguments.length ; ++i){
+    
+    /*for (var i = 1 ; i < arguments.length ; ++i){
       for ( var key in arguments[i]){
         obj[key] = arguments[i][key];
       } 
-     }*/
+     }
+     return obj;
+     */
+
      _.each( arguments, function(item){
         for(var key in item){
-          obj[key] = item[key];
+          obj[key] = item[key]; 
         }
      });
+     return obj;
   };
 
   // Like extend, but doesn't ever overwrite a key that already
@@ -255,12 +275,13 @@
   _.defaults = function(obj) {
      _.each( arguments, function(item){
         for(var key in item){
-          if ( !_.contains (obj, key) )
+          if ( !(key in obj))
           {
             obj[key] = item[key];
           }
         }
      });
+     return obj;
   };
 
 
@@ -304,6 +325,31 @@
   // already computed the result for the given argument and return that value
   // instead if possible.
   _.memoize = function(func) {
+    // Assuming that all the arguments are primitives, convert them into a string and 
+    // store them in a dictionary <inp_string, result>. Return the result if it exists in the
+    // dictionary
+    // If the arguments are not-primitive or if some arguments cannot be converted to string, 
+    // we will need a better way to implement this.
+    var dict = [];
+
+    return function() {
+      var textArgs = "";
+      var i;
+      var result;
+      for (i in arguments) {
+        textArgs += arguments[i].toString();
+        console.log(textArgs);
+      }
+
+      if (textArgs in dict){
+        result = dict[textArgs];
+      }
+      else{
+        result = func.apply(this, arguments);
+        dict[textArgs] = result;
+      }
+      return result;
+    };
   };
 
   // Delays a function for the given number of milliseconds, and then calls
@@ -312,9 +358,14 @@
   // The arguments for the original function are passed after the wait
   // parameter. For example _.delay(someFunction, 500, 'a', 'b') will
   // call someFunction('a', 'b') after 500ms
-  _.delay = function(func, wait) {
-    await sleep(wait);
-    func.apply(this, arguments.slice(2, arguments.length));
+  _.delay = function (func, wait) {
+    var args;
+    if (arguments.length > 2)
+      args = Array.prototype.slice.call(arguments, 2);
+
+     setTimeout(function() {
+        func.apply(null, args);
+    }, wait);
   };
 
 
@@ -329,6 +380,21 @@
   // input array. For a tip on how to make a copy of an array, see:
   // http://mdn.io/Array.prototype.slice
   _.shuffle = function(array) {
+    // make a copy of the array
+    var workArray = array.slice();
+
+    var max = workArray.length;
+    for (var i = 0; i < workArray.length-1 ; ++i){
+      var min = i;
+      var randomLoc = Math.floor(Math.random() * (max - min)) + min;
+
+      // swap the randomLoc with min.
+      var tmpVal = workArray[randomLoc];
+      workArray[randomLoc] = workArray[min];
+      workArray[min] = tmpVal;
+    }
+
+    return workArray;
   };
 
 
