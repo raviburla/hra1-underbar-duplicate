@@ -214,6 +214,7 @@
   // provided, provide a default one
   _.some = function(collection, iterator) {
     // TIP: There's a very clever way to re-use every() here.
+    return ! _.every(collection, function(item) { return !iterator(item)});
   };
 
 
@@ -312,6 +313,8 @@
   // parameter. For example _.delay(someFunction, 500, 'a', 'b') will
   // call someFunction('a', 'b') after 500ms
   _.delay = function(func, wait) {
+    await sleep(wait);
+    func.apply(this, arguments.slice(2, arguments.length));
   };
 
 
